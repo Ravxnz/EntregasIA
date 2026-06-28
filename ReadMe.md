@@ -1,5 +1,5 @@
 Matricula: 204143
-Nombre:Moises Guillermo Lopez Pancardo
+Nombre: Moises Guillermo Lopez Pancardo
 Profesor: Jesús Alejandro Flores Hernández
 Materia: Programación Avanzada
 
