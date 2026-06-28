@@ -3,7 +3,7 @@ Nombre:Moises Guillermo Lopez Pancardo
 Profesor: Jesús Alejandro Flores Hernández
 Materia: Programación Avanzada
 
-Este repositorio contiene la Actividad 01 completa correspondiente al tema de Sistemas Expertos e Inteligencia Artificial
+- Este repositorio contiene la Actividad 01 completa correspondiente al tema de Sistemas Expertos e Inteligencia Artificial
 
 La actividad consiste en investigar, analizar y presentar conceptos fundamentales de la Inteligencia Artificial y los Sistemas expertos, incluyendo:
 
