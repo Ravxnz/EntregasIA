@@ -1,0 +1,30 @@
+title: "Naive Bayes en Iris"
+author: "Moisés Guillermo López Pancardo"
+output: html_document
+
+{r
+knitr::opts_chunk$set(echo = TRUE)
+Introducción
+Naive Bayes es un clasificador probabilístico basado en el Teorema de Bayes. Es simple, rápido y eficaz para problemas de clasificación.
+
+Cargar datos y aplicar Naive Bayes
+{r}
+library(e1071)
+data(iris)
+set.seed(123)
+indices <- sample(1:nrow(iris), 0.8*nrow(iris))
+train <- iris[indices,]
+test <- iris[-indices,]
+modelo <- naiveBayes(Species ~ ., data=train)
+pred <- predict(modelo, test)
+table(pred, test$Species)
+mean(pred == test$Species)
+Matriz de 20 muestras
+{r}
+set.seed(456)
+indices20 <- sample(1:nrow(iris), 20)
+m20 <- iris[indices20,]
+p20 <- predict(modelo, m20)
+table(p20, m20$Species)
+Conclusión
+El modelo Naive Bayes logró una precisión alta en el dataset Iris, clasificando correctamente la mayoría de las especies.
