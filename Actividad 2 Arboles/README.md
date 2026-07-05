@@ -1,9 +1,9 @@
 # Actividad: Árboles de Decisión y Naive Bayes
 
-Nombre: Moisés Guillermo López Pancardo
-Matricula: 204143
-Profesor: Jesus Alejandro Flores Hernandez
-Materia: Programacion Avanzada
+- Nombre: Moisés Guillermo López Pancardo
+- Matricula: 204143
+- Profesor: Jesus Alejandro Flores Hernandez
+- Materia: Programacion Avanzada
 
 ---
 
