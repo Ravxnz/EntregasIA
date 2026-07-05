@@ -1,0 +1,142 @@
+<body>
+
+<div class="container-fluid main-container">
+
+<div id="header" class="fluid-row">
+  <h1 class="title toc-ignore">Análisis Predictivo Avanzado: Naive Bayes en el Dataset Iris</h1>
+  <h3 class="author">Angel Osvaldo Villalon Roca</h3>
+  <h4 class="date">Ingeniería en Sistemas | Programación Avanzada</h4>
+  <h4 class="date">Cárdenas, Tabasco</h4>
+</div>
+
+<div id="introduccion" class="section level2">
+  <h2>1. Introducción</h2>
+  <p>El algoritmo <strong>Naive Bayes</strong> es un clasificador probabilístico fundamental basado en el Teorema de Bayes. Aunque asume independencia condicional entre los predictores (de ahí el término "ingenuo"), resulta ser extremadamente rápido, escalable y eficaz para múltiples problemas de clasificación estadística y minería de datos.</p>
+</div>
+
+<div id="exploracion-visual" class="section level2">
+  <h2>2. Exploración Visual de los Datos</h2>
+  <p>Antes de entrenar el modelo, es una buena práctica analizar la distribución de nuestras variables. Utilizaremos <code>ggplot2</code> para visualizar el solapamiento entre las diferentes especies según las dimensiones de sus pétalos.</p>
+
+<pre class="r"><code># Cargar librerías necesarias
+library(ggplot2)
+library(caret)
+library(e1071)
+
+data(iris)
+
+# Gráfico de dispersión: Longitud vs Ancho del Pétalo
+ggplot(iris, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point(size = 3, alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribución de Especies de Iris (Pétalo)",
+       x = "Longitud del Pétalo",
+       y = "Ancho del Pétalo")</code></pre>
+  <p><em>Nota: Visualmente podemos notar que la especie Setosa es linealmente separable, mientras que Versicolor y Virginica presentan una ligera región de solapamiento espacial.</em></p>
+</div>
+
+<div id="entrenamiento" class="section level2">
+  <h2>3. Carga de Datos y Entrenamiento del Modelo</h2>
+  <p>Dividimos el dataset en conjuntos de entrenamiento (80%) y prueba (20%).</p>
+  
+<pre class="r"><code>set.seed(123)
+
+# División de los datos
+indices &lt;- sample(1:nrow(iris), 0.8 * nrow(iris))
+train &lt;- iris[indices, ]
+test &lt;- iris[-indices, ]
+
+# Entrenamiento del modelo Naive Bayes
+modelo_nb &lt;- naiveBayes(Species ~ ., data = train)
+print(modelo_nb)</code></pre>
+</div>
+
+<div id="validacion-cruzada" class="section level2">
+  <h2>4. Validación Cruzada (10-Fold Cross-Validation)</h2>
+  <p>Para asegurar que nuestro modelo generaliza correctamente y evitar el sobreajuste (overfitting), aplicamos validación cruzada con 10 pliegues utilizando la librería <code>caret</code>.</p>
+  
+<pre class="r"><code>set.seed(123)
+# Configurar el control del entrenamiento
+train_control &lt;- trainControl(method = "cv", number = 10)
+
+# Entrenar el modelo con CV
+modelo_cv &lt;- train(Species ~ ., data = iris, 
+                   method = "naive_bayes", 
+                   trControl = train_control)
+
+print(modelo_cv)</code></pre>
+</div>
+
+<div id="evaluacion-detallada" class="section level2">
+  <h2>5. Predicción y Métricas de Evaluación</h2>
+  <p>Evaluamos el rendimiento del modelo inicial sobre nuestro set de pruebas (20%) extrayendo la matriz de confusión completa, lo que nos dará la exactitud, sensibilidad y especificidad.</p>
+
+<pre class="r"><code># Generar predicciones
+predicciones &lt;- predict(modelo_nb, test)
+
+# Matriz de Confusión detallada
+matriz_confusion &lt;- confusionMatrix(predicciones, test$Species)
+print(matriz_confusion)
+
+# Extraer solo la precisión global
+precision &lt;- matriz_confusion$overall['Accuracy']
+cat("\nPrecisión global del modelo en Testing:", round(precision * 100, 2), "%\n")</code></pre>
+</div>
+
+<div id="muestreo" class="section level2">
+  <h2>6. Simulación con Matriz de 20 Muestras Aleatorias</h2>
+  <p>Extraemos un subconjunto completamente aleatorio para realizar un test rápido del comportamiento del algoritmo.</p>
+  
+<pre class="r"><code>set.seed(456)
+indices20 &lt;- sample(1:nrow(iris), 20)
+m20 &lt;- iris[indices20, ]
+
+# Predicción sobre las 20 muestras
+p20 &lt;- predict(modelo_nb, m20)
+
+# Comparación rápida
+resultados_20 &lt;- data.frame(Real = m20$Species, Prediccion = p20)
+table(Prediccion = p20, Real = m20$Species)</code></pre>
+</div>
+
+<div id="conclusion" class="section level2">
+  <h2>7. Conclusión</h2>
+  <p>El modelo Naive Bayes demostró un rendimiento sobresaliente, manteniendo un alto <em>Accuracy</em> incluso al ser sometido a validación cruzada. El ligero margen de error, tal como lo corroboró el análisis visual con <code>ggplot2</code>, se atribuye exclusivamente al solapamiento natural entre las métricas de <em>versicolor</em> y <em>virginica</em>. La implementación de estas metodologías de evaluación (como CV y Matrices de Confusión avanzadas) resulta vital en la construcción de sistemas expertos y arquitecturas de inteligencia artificial fiables.</p>
+</div>
+
+</div>
+
+<script>
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+</script>
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
