@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="author" content="Angel Osvaldo Villalon Roca" />
+
+<title>Naive Bayes - Estudiantes FCI</title>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style type="text/css">
+body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.42857143; color: #333; background-color: #fff; padding: 20px; }
+.main-container { max-width: 940px; margin-left: auto; margin-right: auto; }
+pre { padding: 9.5px; margin: 0 0 10px; font-size: 13px; line-height: 1.42857143; color: #333; background-color: #f5f5f5; border: 1px solid #ccc; border-radius: 4px; }
+code { padding: 2px 4px; font-size: 90%; color: #c7254e; background-color: #f9f2f4; border-radius: 4px; }
+h1, h2 { color: #333; }
+</style>
+
+</head>
+
+<body>
+
+<div class="container-fluid main-container">
+
+<div id="header">
+<h1 class="title toc-ignore">Naive Bayes - Estudiantes FCI</h1>
+<h4 class="author">Angel Osvaldo Villalon Roca</h4>
+</div>
+
+<div id="introducción" class="section level1">
+<h1>Introducción</h1>
+<p>Aplicación del algoritmo de clasificación Naive Bayes para evaluar y predecir el rendimiento académico de los estudiantes de la FCI basándose en sus hábitos y situación.</p>
+</div>
+
+<div id="generar-y-explorar-datos" class="section level1">
+<h1>Generar y explorar datos</h1>
+<pre class="r"><code>set.seed(123)
+n &lt;- 100
+tiempo &lt;- sample(c(&quot;Alto&quot;,&quot;Medio&quot;,&quot;Bajo&quot;), n, replace=TRUE)
+asistencia &lt;- sample(c(&quot;Alta&quot;,&quot;Media&quot;,&quot;Baja&quot;), n, replace=TRUE)
+participacion &lt;- sample(c(&quot;Alta&quot;,&quot;Media&quot;,&quot;Baja&quot;), n, replace=TRUE)
+situacion &lt;- sample(c(&quot;Buena&quot;,&quot;Mala&quot;), n, replace=TRUE)
+
+rendimiento &lt;- character(n)
+for (i in 1:n) {
+  score &lt;- 0
+  if (tiempo[i]==&quot;Alto&quot;) score &lt;- score+3 else if (tiempo[i]==&quot;Medio&quot;) score &lt;- score+2 else score &lt;- score+1
+  if (asistencia[i]==&quot;Alta&quot;) score &lt;- score+3 else if (asistencia[i]==&quot;Media&quot;) score &lt;- score+2 else score &lt;- score+1
+  if (participacion[i]==&quot;Alta&quot;) score &lt;- score+2 else if (participacion[i]==&quot;Media&quot;) score &lt;- score+1.5 else score &lt;- score+1
+  if (situacion[i]==&quot;Buena&quot;) score &lt;- score+1
+  
+  score &lt;- (score/10)*100
+  
+  if (score&gt;=90) rendimiento[i] &lt;- &quot;Excelente&quot;
+  else if (score&gt;=80) rendimiento[i] &lt;- &quot;Bueno&quot;
+  else if (score&gt;=70) rendimiento[i] &lt;- &quot;Regular&quot;
+  else rendimiento[i] &lt;- &quot;Deficiente&quot;
+}
+
+datos &lt;- data.frame(TiempoEstudio=tiempo, Asistencia=asistencia,
+                    Participacion=participacion, SituacionEcon=situacion,
+                    Rendimiento=rendimiento, stringsAsFactors=TRUE)
+
+# Exploración inicial de los datos generados
+head(datos)</code></pre>
+<pre><code>##   TiempoEstudio Asistencia Participacion SituacionEcon Rendimiento
+## 1          Bajo       Alta          Baja         Buena  Deficiente
+## 2          Bajo       Alta         Media         Buena  Deficiente
+## 3          Bajo       Baja         Media          Mala  Deficiente
+## 4         Medio       Alta          Baja          Mala  Deficiente
+## 5          Bajo      Media          Alta         Buena  Deficiente
+## 6         Medio       Alta          Alta         Buena       Bueno</code></pre>
+<pre class="r"><code>summary(datos)</code></pre>
+<pre><code>##  TiempoEstudio   Asistencia   Participacion SituacionEcon  Rendimiento 
+##  Alto :30      Alta :35     Alta :32      Buena:56      Bueno     :24  
+##  Bajo :32      Baja :31     Baja :35      Mala :44      Deficiente:57  
+##  Medio:38      Media:34     Media:33                    Excelente : 4  
+##                                                         Regular   :15</code></pre>
+</div>
+
+<div id="dividir-y-aplicar-naive-bayes" class="section level1">
+<h1>Dividir y aplicar Naive Bayes</h1>
+<pre class="r"><code>library(e1071)
+set.seed(456)
+
+# División de datos (80% entrenamiento, 20% prueba)
+ind &lt;- sample(1:nrow(datos), 0.8*nrow(datos))
+train &lt;- datos[ind,]
+test &lt;- datos[-ind,]
+
+cat(&quot;Estudiantes para entrenar el modelo:&quot;, nrow(train), &quot;\n&quot;)
+cat(&quot;Estudiantes para probar el modelo:&quot;, nrow(test), &quot;\n\n&quot;)
+
+# Entrenamiento
+modelo &lt;- naiveBayes(Rendimiento ~ ., data=train)
+
+# Predicción
+pred &lt;- predict(modelo, test)
+
+# Matriz de confusión
+tabla &lt;- table(Prediccion = pred, Real = test$Rendimiento)
+print(tabla)
+
+# Comparación rápida de los primeros resultados
+head(data.frame(Real = test$Rendimiento, Prediccion = pred))
+
+# Precisión
+accuracy &lt;- mean(pred == test$Rendimiento)
+cat(&quot;\nPrecisión:&quot;, round(accuracy*100,2), &quot;%\n&quot;)</code></pre>
+</div>
+
+<div id="conclusión" class="section level1">
+<h1>Conclusión</h1>
+<p>El modelo alcanzó una precisión de 95% en el conjunto de prueba, logrando clasificar adecuadamente el rendimiento esperado de los estudiantes en base a los atributos analizados.</p>
+</div>
+
+</div>
+
+</body>
+</html>

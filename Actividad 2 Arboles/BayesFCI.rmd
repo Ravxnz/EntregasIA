@@ -1,0 +1,67 @@
+---
+title: "Análisis Predictivo Avanzado: Naive Bayes - Estudiantes FCI"
+author: "Moisés Guillermo López Pancardo"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Introducción
+
+Aplicación de Naive Bayes para predecir rendimiento académico de estudiantes FCI.
+
+# Generar Datos
+
+```{r}
+set.seed(123)
+n <- 50
+tiempo <- sample(c("Alto","Medio","Bajo"), n, replace=TRUE)
+asistencia <- sample(c("Alta","Media","Baja"), n, replace=TRUE)
+participacion <- sample(c("Alta","Media","Baja"), n, replace=TRUE)
+situacion <- sample(c("Buena","Mala"), n, replace=TRUE)
+
+rendimiento <- character(n)
+for (i in 1:n) {
+  score <- 0
+  if (tiempo[i]=="Alto") score <- score+3 else if (tiempo[i]=="Medio") score <- score+2 else score <- score+1
+  if (asistencia[i]=="Alta") score <- score+3 else if (asistencia[i]=="Media") score <- score+2 else score <- score+1
+  if (participacion[i]=="Alta") score <- score+2 else if (participacion[i]=="Media") score <- score+1.5 else score <- score+1
+  if (situacion[i]=="Buena") score <- score+1
+  score <- (score/10)*100
+  if (score>=90) rendimiento[i] <- "Excelente"
+  else if (score>=80) rendimiento[i] <- "Bueno"
+  else if (score>=70) rendimiento[i] <- "Regular"
+  else rendimiento[i] <- "Deficiente"
+}
+
+datos <- data.frame(TiempoEstudio=tiempo, Asistencia=asistencia,
+                    Participacion=participacion, SituacionEcon=situacion,
+                    Rendimiento=rendimiento, stringsAsFactors=TRUE)
+head(datos)
+```
+
+# Dividir y aplicar Naive Bayes
+
+```{r}
+library(e1071)
+set.seed(456)
+ind <- sample(1:nrow(datos), 0.8*nrow(datos))
+train <- datos[ind,]
+test <- datos[-ind,]
+modelo <- naiveBayes(Rendimiento ~ ., data=train)
+pred <- predict(modelo, test)
+tabla <- table(pred, test$Rendimiento)
+print(tabla)
+accuracy <- mean(pred == test$Rendimiento)
+cat("Precisión:", round(accuracy*100,2), "%")
+```
+
+# Conclusión
+
+El modelo alcanzó una precisión de `r round(accuracy*100,2)`% en el conjunto de prueba.
