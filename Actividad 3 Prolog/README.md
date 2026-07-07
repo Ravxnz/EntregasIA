@@ -7,7 +7,7 @@
 
 ---
 
-- Materia:Programación Avanzada
+- Materia: Programación Avanzada
 - Profesor: Jesus Alejandro Flores Hernandez
 
 # Descripción
