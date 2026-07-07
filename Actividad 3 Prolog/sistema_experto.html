@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema Experto - Asignación de Proyectos</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #1a237e; }
+        .botones { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        button { padding: 10px 18px; background: #0d47a1; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1565c0; }
+        .consulta-personalizada { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 15px 0; }
+        #customQuery { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; min-width: 200px; }
+        #output { border: 1px solid #ddd; padding: 15px; background: #fafafa; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; margin-top: 15px; min-height: 150px; max-height: 500px; overflow-y: auto; }
+        .etiqueta { font-weight: bold; color: #1a237e; }
+        .error { color: red; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; font-family: Arial, sans-serif; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #0d47a1; color: white; }
+        .tabla-resumen { margin-top: 15px; }
+        .tabla-resumen th { background-color: #1565c0; }
+        .cargando { color: #888; font-style: italic; }
+        .exito { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Sistema Experto – Asignación de Proyectos</h1>
+    <p>Base con 10 desarrolladores y 10 proyectos (versión con tablas).</p>
+    <div class="botones">
+        <button onclick="runQuery('desarrollador(X,Y).')">Probar motor</button>
+        <button onclick="listarDesarrolladores()">Listar desarrolladores</button>
+        <button onclick="listarProyectos()">Listar proyectos</button>
+        <button onclick="runQuery('project_ready(proyecto1).')">Proyecto1 listo?</button>
+        <button onclick="runQuery('missing_personnel(proyecto1, Faltantes).')">Faltantes Proyecto1</button>
+        <button onclick="runQuery('project_ready(proyecto7).')">Proyecto7 listo?</button>
+        <button onclick="runQuery('missing_personnel(proyecto7, Faltantes).')">Faltantes Proyecto7</button>
+        <button onclick="runQuery('project_ready(proyecto5).')">Proyecto5 listo?</button>
+    </div>
+    <div class="consulta-personalizada">
+        <label for="customQuery" class="etiqueta">Consulta personalizada:</label>
+        <input id="customQuery" type="text" size="50" value="missing_personnel(proyecto7, Faltantes)." />
+        <button onclick="runQuery(document.getElementById('customQuery').value)">Ejecutar</button>
+    </div>
+    <h3>Resultado:</h3>
+    <div id="output">Cargando...</div>
+</div>
+
+<script src="tau-prolog.js"></script>
+<script>
+    // =====================================================
+    // BASE DE CONOCIMIENTOS
+    // =====================================================
+    const kb = `
+        % ----- Datos -----
+        desarrollador(juan, junior).
+        desarrollador(marta, junior).
+        desarrollador(carlos, junior).
+        desarrollador(ana, avanzado).
+        desarrollador(luis, avanzado).
+        desarrollador(maria, avanzado).
+        desarrollador(pedro, senior).
+        desarrollador(elena, senior).
+        desarrollador(david, senior).
+        desarrollador(laura, senior).
+
+        proyecto(proyecto1, bajo).
+        proyecto(proyecto2, bajo).
+        proyecto(proyecto3, medio).
+        proyecto(proyecto4, medio).
+        proyecto(proyecto5, alto).
+        proyecto(proyecto6, alto).
+        proyecto(proyecto7, muy_alto).
+        proyecto(proyecto8, muy_alto).
+        proyecto(proyecto9, bajo).
+        proyecto(proyecto10, alto).
+
+        requeridos(bajo, [avanzado, junior]).
+        requeridos(medio, [senior, avanzado]).
+        requeridos(alto, [senior, avanzado, junior]).
+        requeridos(muy_alto, [senior, avanzado, avanzado, junior, junior]).
+
+        % ----- Auxiliares -----
+        member(X, [X|_]).
+        member(X, [_|T]) :- member(X, T).
+
+        length([], 0).
+        length([_|T], N) :- length(T, M), N is M + 1.
+
+        count_occ(Elem, Lista, Count) :-
+            findall(1, member(Elem, Lista), L),
+            length(L, Count).
+
+        delete_all(_, [], []).
+        delete_all(X, [X|T], R) :- delete_all(X, T, R).
+        delete_all(X, [Y|T], [Y|R]) :- X \\= Y, delete_all(X, T, R).
+
+        unique([], []).
+        unique([H|T], [H|U]) :-
+            delete_all(H, T, Rest),
+            unique(Rest, U).
+
+        cuenta_elementos(Lista, Cuentas) :-
+            unique(Lista, Unicos),
+            findall([Elem, Count], ( member(Elem, Unicos), count_occ(Elem, Lista, Count) ), Cuentas).
+
+        cubierto(Requeridos, Disponibles) :-
+            cuenta_elementos(Requeridos, ReqCounts),
+            cuenta_elementos(Disponibles, DispCounts),
+            check_cubierto(ReqCounts, DispCounts).
+
+        check_cubierto([], _).
+        check_cubierto([[Rol, ReqN]|T], DispCounts) :-
+            member([Rol, DispN], DispCounts),
+            ReqN =< DispN,
+            check_cubierto(T, DispCounts).
+
+        diferencia_multiconjunto(Req, Disp, Faltantes) :-
+            cuenta_elementos(Req, ReqCounts),
+            cuenta_elementos(Disp, DispCounts),
+            calc_faltantes(ReqCounts, DispCounts, [], Faltantes).
+
+        calc_faltantes([], _, Acc, Acc).
+        calc_faltantes([[Rol, ReqN]|T], DispCounts, Acc, Faltantes) :-
+            ( member([Rol, DispN], DispCounts) -> Faltan is ReqN - DispN ; Faltan = ReqN ),
+            ( Faltan > 0 -> 
+                gen_list(Rol, Faltan, ListaRol),
+                append(Acc, ListaRol, NewAcc)
+              ; NewAcc = Acc
+            ),
+            calc_faltantes(T, DispCounts, NewAcc, Faltantes).
+
+        gen_list(_, 0, []).
+        gen_list(Rol, N, [Rol|T]) :- N > 0, N1 is N - 1, gen_list(Rol, N1, T).
+
+        append([], L, L).
+        append([H|T], L, [H|R]) :- append(T, L, R).
+
+        % ----- Reglas principales -----
+        project_ready(Proyecto) :-
+            proyecto(Proyecto, Nivel),
+            requeridos(Nivel, Requeridos),
+            findall(Rol, desarrollador(_, Rol), Disponibles),
+            cubierto(Requeridos, Disponibles).
+
+        missing_personnel(Proyecto, Faltantes) :-
+            proyecto(Proyecto, Nivel),
+            requeridos(Nivel, Requeridos),
+            findall(Rol, desarrollador(_, Rol), Disponibles),
+            diferencia_multiconjunto(Requeridos, Disponibles, Faltantes).
+    `;
+
+    // =====================================================
+    // JAVASCRIPT
+    // =====================================================
+    let session = null;
+    let kbCargada = false;
+
+    function iniciar() {
+        if (typeof pl === 'undefined') {
+            document.getElementById('output').innerHTML = '<span class="error">Error: No se cargó Tau‑Prolog.</span>';
+            return;
+        }
+        session = pl.create({ maxSteps: 10000 });
+        session.consult(kb, {
+            success: function() {
+                kbCargada = true;
+                document.getElementById('output').textContent = 'Base cargada. Prueba un botón.';
+                console.log('KB cargada correctamente.');
+                runQuery('desarrollador(X,Y).');
+            },
+            error: function(err) {
+                document.getElementById('output').innerHTML = '<span class="error">Error al cargar KB: ' + err + '</span>';
+                console.error('Error KB:', err);
+            }
+        });
+    }
+
+    window.onload = function() {
+        if (typeof pl !== 'undefined') iniciar();
+        else {
+            const check = setInterval(() => {
+                if (typeof pl !== 'undefined') {
+                    clearInterval(check);
+                    iniciar();
+                }
+            }, 100);
+            setTimeout(() => {
+                if (typeof pl === 'undefined')
+                    document.getElementById('output').innerHTML = '<span class="error">Error: No se cargó Tau‑Prolog.</span>';
+            }, 3000);
+        }
+    };
+
+    function asegurarPunto(q) { q = q.trim(); return q.endsWith('.') ? q : q + '.'; }
+
+    function runQuery(query) {
+        if (!session || !kbCargada) {
+            document.getElementById('output').textContent = 'Sistema no listo.';
+            return;
+        }
+        query = asegurarPunto(query);
+        const output = document.getElementById('output');
+        output.textContent = 'Procesando: ' + query + '\n\n';
+        console.log('Consulta:', query);
+
+        session.query(query, {
+            success: function() {
+                console.log('Consulta aceptada.');
+                let resultados = [];
+                let hay = false;
+
+                session.answer({
+                    success: function(ans) {
+                        hay = true;
+                        const str = pl.format_answer(ans);
+                        resultados.push(str);
+                        console.log('Respuesta:', str);
+                    },
+                    error: function(err) {
+                        output.textContent += 'Error en respuesta: ' + err + '\n';
+                        console.error('Error en answer:', err);
+                    },
+                    complete: function() {
+                        console.log('Completado.');
+                        if (!hay) output.textContent += 'Falso.\n';
+                        else output.textContent += resultados.join('\n');
+                    }
+                });
+            },
+            error: function(err) {
+                output.textContent += 'Error en consulta: ' + err + '\n';
+                console.error('Error en query:', err);
+            }
+        });
+    }
+
+    // =====================================================
+    // LISTAR DESARROLLADORES (con tablas y conteo por nivel)
+    // =====================================================
+    function listarDesarrolladores() {
+        if (!session || !kbCargada) {
+            document.getElementById('output').textContent = 'Sistema no listo.';
+            return;
+        }
+        const output = document.getElementById('output');
+        output.innerHTML = '<span class="cargando">Cargando desarrolladores...</span><br>';
+
+        console.log('Consultando desarrolladores...');
+
+        session.query('desarrollador(Nombre, Nivel).', {
+            success: function() {
+                console.log('Consulta de desarrolladores aceptada.');
+                let desarrolladores = [];
+                let hay = false;
+
+                session.answer({
+                    success: function(ans) {
+                        hay = true;
+                        const nom = ans.links['Nombre'];
+                        const niv = ans.links['Nivel'];
+                        desarrolladores.push({ nombre: nom.id, nivel: niv.id });
+                        console.log('Desarrollador:', nom.id, niv.id);
+                    },
+                    error: function(err) {
+                        output.innerHTML += '<br><span class="error">Error: ' + err + '</span>';
+                        console.error('Error en answer:', err);
+                    },
+                    complete: function() {
+                        console.log('Completado listado de desarrolladores. Total:', desarrolladores.length);
+                        if (!hay) {
+                            output.innerHTML = 'No hay desarrolladores.';
+                            return;
+                        }
+
+                        // Contar por nivel
+                        const conteo = {};
+                        desarrolladores.forEach(d => {
+                            conteo[d.nivel] = (conteo[d.nivel] || 0) + 1;
+                        });
+
+                        // Construir tabla de detalles
+                        let html = '<h4>Lista de desarrolladores</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Nombre</th><th>Nivel</th></tr>';
+                        desarrolladores.forEach(d => {
+                            html += `<tr><td>${d.nombre}</td><td>${d.nivel}</td></tr>`;
+                        });
+                        html += '</table>';
+
+                        // Construir tabla de resumen por nivel
+                        html += '<div class="tabla-resumen"><h4>Resumen por nivel</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Nivel</th><th>Cantidad</th></tr>';
+                        const niveles = Object.keys(conteo).sort();
+                        niveles.forEach(n => {
+                            html += `<tr><td>${n}</td><td>${conteo[n]}</td></tr>`;
+                        });
+                        html += `<tr><td><strong>Total</strong></td><td><strong>${desarrolladores.length}</strong></td></tr>`;
+                        html += '</table></div>';
+
+                        output.innerHTML = html;
+                        console.log('Tablas de desarrolladores mostradas.');
+                    }
+                });
+            },
+            error: function(err) {
+                output.innerHTML = '<span class="error">Error en consulta: ' + err + '</span>';
+                console.error('Error en query:', err);
+            }
+        });
+    }
+
+    // =====================================================
+    // LISTAR PROYECTOS (con tablas y conteo por nivel)
+    // =====================================================
+    function listarProyectos() {
+        if (!session || !kbCargada) {
+            document.getElementById('output').textContent = 'Sistema no listo.';
+            return;
+        }
+        const output = document.getElementById('output');
+        output.innerHTML = '<span class="cargando">Cargando proyectos...</span><br>';
+
+        console.log('Consultando proyectos...');
+
+        session.query('proyecto(Nombre, Nivel).', {
+            success: function() {
+                console.log('Consulta de proyectos aceptada.');
+                let proyectos = [];
+                let hay = false;
+
+                session.answer({
+                    success: function(ans) {
+                        hay = true;
+                        const nom = ans.links['Nombre'];
+                        const niv = ans.links['Nivel'];
+                        proyectos.push({ nombre: nom.id, nivel: niv.id });
+                        console.log('Proyecto:', nom.id, niv.id);
+                    },
+                    error: function(err) {
+                        output.innerHTML += '<br><span class="error">Error: ' + err + '</span>';
+                        console.error('Error en answer:', err);
+                    },
+                    complete: function() {
+                        console.log('Completado listado de proyectos. Total:', proyectos.length);
+                        if (!hay) {
+                            output.innerHTML = 'No hay proyectos.';
+                            return;
+                        }
+
+                        // Contar por nivel
+                        const conteo = {};
+                        proyectos.forEach(p => {
+                            conteo[p.nivel] = (conteo[p.nivel] || 0) + 1;
+                        });
+
+                        // Tabla de detalles
+                        let html = '<h4>Lista de proyectos</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Nombre</th><th>Nivel</th></tr>';
+                        proyectos.forEach(p => {
+                            html += `<tr><td>${p.nombre}</td><td>${p.nivel}</td></tr>`;
+                        });
+                        html += '</table>';
+
+                        // Tabla de resumen por nivel
+                        html += '<div class="tabla-resumen"><h4>Resumen por nivel</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Nivel</th><th>Cantidad</th></tr>';
+                        const niveles = Object.keys(conteo).sort();
+                        niveles.forEach(n => {
+                            html += `<tr><td>${n}</td><td>${conteo[n]}</td></tr>`;
+                        });
+                        html += `<tr><td><strong>Total</strong></td><td><strong>${proyectos.length}</strong></td></tr>`;
+                        html += '</table></div>';
+
+                        output.innerHTML = html;
+                        console.log('Tablas de proyectos mostradas.');
+                    }
+                });
+            },
+            error: function(err) {
+                output.innerHTML = '<span class="error">Error en consulta: ' + err + '</span>';
+                console.error('Error en query:', err);
+            }
+        });
+    }
+</script>
+</body>
+</html>
