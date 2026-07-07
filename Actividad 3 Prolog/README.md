@@ -24,5 +24,11 @@ La actividad consiste en lo siguiente:
 - GET /high_achievers → lista de alumnos de alto rendimiento.
 - GET /subjects → materias agrupadas por semestre y área.
 - GET /course/P101/aspirants → número y lista de aspirantes a la materia.
-    
+
+---
+
 ## Sistema Experto en Tau-Prolog | Asignacion de proyectos a programadores
+
+---
+
+## Sistema Experto en Go | Control de Ingredientes de Platillos
