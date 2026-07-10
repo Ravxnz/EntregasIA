@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Perceptrón XOR con Ingeniería de Características</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        h1 { color: #333; }
+        #grafica { width: 100%; height: 600px; }
+        #info { background: #fff; padding: 15px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Perceptrón para XOR + Mapeo a 3D</h1>
+    <p><strong>Kernel:</strong> K(x,z) = x₁z₁ + x₂z₂ + (x₁x₂)(z₁z₂) (polinomial grado 2 sin término constante)</p>
+    <div id="grafica"></div>
+    <div id="info">
+        <h3>Resultados del entrenamiento</h3>
+        <pre id="salida"></pre>
+        <button onclick="ejecutarPerceptron()">Re-entrenar (reiniciar pesos)</button>
+        <p style="font-size:0.9em; color:#555;">* Los puntos rojos son clase -1, los azules clase +1. El plano se actualiza en cada iteración.</p>
+    </div>
+
+    <script>
+        // ---- DATOS XOR ----
+        // Entradas originales (x1, x2) y salida esperada {-1, +1}
+        const x1 = [0, 0, 1, 1];
+        const x2 = [0, 1, 0, 1];
+        const y_esperada = [-1, 1, 1, -1];  // -1 = clase 0, +1 = clase 1
+
+        // ---- Ingeniería de características: phi(x1,x2) = (x1, x2, x1*x2) ----
+        const x3 = x1.map((v, i) => v * x2[i]);
+
+        // ---- Variables del perceptrón ----
+        let w = [0, 0, 0];   // pesos para [x1, x2, x3]
+        let b = 0.5;         // sesgo
+        let iter = 0;
+        let maxIter = 1000;
+        let convergido = false;
+
+        // ---- Función que dibuja la gráfica 3D con el plano actual ----
+        function dibujarGrafica(w_actual, b_actual, titulo) {
+            // Crear malla para el plano: w1*x + w2*y + w3*z + b = 0  =>  z = (-b - w1*x - w2*y)/w3
+            const nPuntos = 30;
+            const x_vals = Array.from({length: nPuntos}, (_, i) => -0.5 + i * (2.0 / (nPuntos-1)));
+            const y_vals = Array.from({length: nPuntos}, (_, i) => -0.5 + i * (2.0 / (nPuntos-1)));
+            const Z = [];
+            for (let i = 0; i < nPuntos; i++) {
+                const fila = [];
+                for (let j = 0; j < nPuntos; j++) {
+                    const x = x_vals[j];
+                    const y = y_vals[i];
+                    let z = 0;
+                    if (w_actual[2] !== 0) {
+                        z = (-b_actual - w_actual[0]*x - w_actual[1]*y) / w_actual[2];
+                    } else {
+                        z = 0;
+                    }
+                    fila.push(z);
+                }
+                Z.push(fila);
+            }
+
+            // Trazas: puntos de datos
+            const tracePuntos = {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: x1,
+                y: x2,
+                z: x3,
+                marker: {
+                    size: 12,
+                    color: y_esperada.map(v => v === -1 ? 'red' : 'blue'),
+                    symbol: 'circle'
+                },
+                name: 'Datos transformados',
+                showlegend: true
+            };
+
+            // Traza del plano
+            const tracePlano = {
+                type: 'surface',
+                x: x_vals,
+                y: y_vals,
+                z: Z,
+                colorscale: [[0, 'rgba(0,255,0,0.3)'], [1, 'rgba(0,255,0,0.3)']],
+                showscale: false,
+                name: 'Plano separador',
+                opacity: 0.6,
+                showlegend: true
+            };
+
+            const layout = {
+                title: titulo || 'Perceptrón XOR - Plano de separación',
+                scene: {
+                    xaxis: {title: 'x₁'},
+                    yaxis: {title: 'x₂'},
+                    zaxis: {title: 'x₃ = x₁·x₂'},
+                    camera: {eye: {x: 1.5, y: 1.5, z: 1.2}}
+                },
+                legend: {x: 0.8, y: 0.9},
+                margin: {l: 0, r: 0, b: 0, t: 50}
+            };
+
+            Plotly.react('grafica', [tracePuntos, tracePlano], layout);
+        }
+
+        // ---- Función para ejecutar una iteración del perceptrón ----
+        function pasoPerceptron() {
+            if (convergido || iter >= maxIter) return false;
+
+            // Calcular salida actual
+            const salida_rn = x1.map((v, i) => Math.sign(w[0]*x1[i] + w[1]*x2[i] + w[2]*x3[i] + b));
+            // Encontrar índices con error
+            const errores = [];
+            for (let i = 0; i < salida_rn.length; i++) {
+                if (y_esperada[i] !== salida_rn[i]) errores.push(i);
+            }
+
+            if (errores.length === 0) {
+                convergido = true;
+                document.getElementById('salida').textContent += `\n✅ Convergió en la iteración ${iter}`;
+                dibujarGrafica(w, b, `Solución final - Iteración ${iter} (convergido)`);
+                return false;
+            }
+
+            // Tomar el primer error para actualizar
+            const idx = errores[0];
+            const delta = y_esperada[idx] - salida_rn[idx];
+
+            // Actualizar pesos y sesgo
+            w[0] = w[0] + delta * x1[idx];
+            w[1] = w[1] + delta * x2[idx];
+            w[2] = w[2] + delta * x3[idx];
+            b = b + delta;
+
+            iter++;
+            // Mostrar información en consola y en el div
+            const info = `Iter ${iter}: error en índice ${idx}, delta=${delta}, w=[${w.map(v=>v.toFixed(3)).join(', ')}], b=${b.toFixed(3)}`;
+            document.getElementById('salida').textContent += info + '\n';
+
+            // Dibujar gráfica actualizada
+            dibujarGrafica(w, b, `Iteración ${iter} - Plano en verde`);
+
+            // Si no ha convergido, programar el siguiente paso después de 500ms
+            if (!convergido && iter < maxIter) {
+                setTimeout(pasoPerceptron, 400); // pausa para ver la evolución
+            } else if (iter >= maxIter) {
+                document.getElementById('salida').textContent += '\n⚠️ No convergió en el máximo de iteraciones.';
+                dibujarGrafica(w, b, 'No convergió (máx iteraciones)');
+            }
+            return true;
+        }
+
+        // ---- Función para reiniciar el entrenamiento ----
+        function ejecutarPerceptron() {
+            // Reiniciar estado
+            w = [0, 0, 0];
+            b = 0.5;
+            iter = 0;
+            convergido = false;
+            document.getElementById('salida').textContent = 'Iniciando entrenamiento...\n';
+            
+            // Dibujar estado inicial (plano rojo)
+            dibujarGrafica(w, b, 'Estado inicial (plano rojo)');
+            
+            // Iniciar el proceso iterativo
+            setTimeout(pasoPerceptron, 300);
+        }
+
+        // ---- Iniciar al cargar la página ----
+        window.onload = function() {
+            ejecutarPerceptron();
+        };
+    </script>
+</body>
+</html>
