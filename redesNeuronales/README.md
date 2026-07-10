@@ -26,4 +26,4 @@ La actividad consiste en lo siguiente:
 
 - Presentación PDF explicando el kernel utilizado y mostrando las graficas donde se pueda ver el plano de separación obtenido al aplicar el kernel
 
-- Codigo en lenguaje 
+- Codigo en lenguaje JS
